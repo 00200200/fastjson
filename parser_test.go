@@ -89,6 +89,46 @@ func TestUnescapeStringBestEffort(t *testing.T) {
 	})
 }
 
+func TestParseUnpairedSurrogate(t *testing.T) {
+	tests := []struct {
+		name string
+		text string
+		want string
+	}{
+		{"high before letter", `\ud800\u0041`, `\ud800A`},
+		{"low before letter", `\udc00\u0041`, `\udc00A`},
+		{"high before pair", `\ud800\ud83e\udd2d`, "\\ud800\U0001f92d"},
+		{"low before pair", `\udc00\ud83e\udd2d`, "\\udc00\U0001f92d"},
+		{"two low surrogates", `\udc00\udd2d`, `\udc00\udd2d`},
+		{"valid pair", `\ud83e\udd2d`, "\U0001f92d"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var p Parser
+			v, err := p.Parse(`{"` + tt.text + `":"` + tt.text + `"}`)
+			if err != nil {
+				t.Fatal(err)
+			}
+			o, err := v.Object()
+			if err != nil {
+				t.Fatal(err)
+			}
+			o.Visit(func(key []byte, value *Value) {
+				if string(key) != tt.want {
+					t.Errorf("key = %q, want %q", key, tt.want)
+				}
+				got, err := value.StringBytes()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if string(got) != tt.want {
+					t.Errorf("value = %q, want %q", got, tt.want)
+				}
+			})
+		})
+	}
+}
+
 func testUnescapeStringBestEffort(t *testing.T, s, expectedS string) {
 	t.Helper()
 

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf16"
+	"unicode/utf8"
 )
 
 // Parser parses JSON.
@@ -358,6 +359,12 @@ func unescapeStringBestEffort(s string) string {
 				break
 			}
 			r := utf16.DecodeRune(rune(x), rune(x1))
+			if r == utf8.RuneError {
+				// Preserve the invalid escape and process the next escape separately.
+				b = append(b, "\\u"...)
+				b = append(b, xs...)
+				break
+			}
 			b = append(b, string(r)...)
 			s = s[6:]
 		default:
